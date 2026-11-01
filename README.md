@@ -31,6 +31,14 @@ For the complete, audited scientific lineage from Version A through Stage 3B and
   - [Experiment 3A Final Report](file:///Users/nish/home/Research%20Project/calibration_logs/version_c/stage3/exp3a_execution_report.md)
   - [Experiment 3B Final Report](file:///Users/nish/home/Research%20Project/calibration_logs/version_c/stage3/exp3b_execution_report.md)
   - [Version D Model Specification](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_model_specification.md)
+  - [Version D Stage 0 Pre-Execution Audit Report](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/stage0_pre_execution_audit.md)
+  - [Version D Independent Pre-Execution Code Audit Report](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_independent_audit.md)
+  - [Version D Stage 1 Calibration Analysis Report](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/stage1_calibration_report.md)
+  - [Version D Stage 1 Audit Corrections Report](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_stage1_audit_corrections.md)
+  - [Version D Research Readiness Audit](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_research_readiness_audit.md)
+  - [Version D Design Decisions Required](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_design_decisions_required.md)
+  - [Version D Final Research Design Review](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_research_design_review.md)
+  - [Version D Final Research Design Blockers](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_final_design_blockers.md)
 - **`simulator/`**: Version A simulator (`sim-1.0.0`).
 - **`simulator_v2/`**: Version B simulator (`sim-2.0.0`).
 - **`simulator_v3/`**: Version C simulator (`sim-3.0.0`) and Stage 3 mechanism isolation experiments.

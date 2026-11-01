@@ -32,68 +32,125 @@ flowchart TD
     end
     
     subgraph AgentLife["Agent Life Cycle (Step Order)"]
-        Obs["1. Observe State (R, E, Trend)"] --> Act["2. Action Selection"]
-        Act --> Harvest["3. Resource Allocation"]
-        Harvest --> Energy["4. Metabolic Deduction (E = E + H - m)"]
-        Energy --> Age["5. Increment Age"]
-        Age --> Starv["6. Starvation Check (E <= 0 -> Die)"]
-        Starv --> Repro["7. Endogenous Reproduction<br>(Age >= Maturity, E > Repro Threshold)"]
-        Repro --> Retir["8. Senescence / Natural Retirement<br>(Age >= MaxAge or Senescent Mortality)"]
-        Retir --> Regen["9. Logistic Resource Regeneration"]
-        Regen --> QUpdate["10. Q-Value Update"]
+        Obs["1. Observe State (R, E, Trend)"] --> Act["2. Action Selection (Q_active for Q-agents)"]
+        Act --> Harvest["3. Resource Allocation & Harvesting"]
+        Harvest --> Energy["4. Metabolic Deduction (E = E + H - 0.20)"]
+        Energy --> Starv["5. Starvation Check (E <= 0 -> Die)"]
+        Starv --> Repro["6. Endogenous Reproduction (E >= 15, Cooldown == 0, Age < 60, P_i check)"]
+        Repro --> Aging["7. Cooldown & Age Step Updates (Newborn & Parent skip birth-step cooldown decrement; Newborn skips birth-step aging)"]
+        Aging --> Retir["8. Senescence Check (Age >= 100 -> Retire)"]
+        Retir --> Regen["9. Logistic Resource Regeneration G(R)"]
+        Regen --> QUpdate["10. Q-Value Update to Q_own"]
     end
     
-    Repro --> Inherit["Vertical Inheritance:<br>Parent transfers 10.0 energy<br>Newborn inherits blended Q-table<br>Q_new = (1 - mu) * Q_parent + mu * Noise"]
+    Repro --> Inherit["Parent transfers 10.0 energy to newborn (Delta E = 0)<br>Newborn receives frozen Q_parent snapshot<br>Linear scaffolding over 12 steps: Q_active = (1 - lambda_t)*Q_own + lambda_t*Q_parent"]
 ```
 
 ### A. Environment & Foraging Action Space
-- **Resource Dynamics:** $G(R_t) = g R_t (1 - R_t / K)$ with $g = 0.10, K = 500, R_0 = 350$.
-- **Harvesting Actions:** Adopts the ecologically verified **Treatment B / C scaled action space** (to ensure the commons is physically capable of supporting the community):
+- **Resource Dynamics (Escapement Renewal):** In discrete time, biological regrowth depends on the residual spawning biomass remaining after harvest ($X_t = \max(0, R_t - H_t)$):
+  $$R_{t+1} = \min\left(K, X_t + g X_t \left(1 - \frac{X_t}{K}\right)\right)$$
+  with $g = 0.10, K = 500.0, R_0 = 350.0$. If standing stock is completely harvested ($X_t = 0$), natural regrowth is zero ($G(0) = 0$). Identical to Version B and Version C.
+- **Harvesting Actions:** Adopts the **50% harvest-quota treatment** (calibrated in Stage 3B as Treatment B):
   - `rest`: $0.000$ units
   - `conservative`: $0.250$ units
   - `moderate`: $0.500$ units
   - `aggressive`: $1.000$ units
 - **Maintenance Cost:** $m = 0.20$ units/step.
-- **Maximum Energy Storage:** $E_{\max} = 25.0$ units (slightly expanded from 20.0 to allow physiological buffering above reproductive cost).
+- **Maximum Energy Storage:** $E_{\max} = 25.0$ units (allowing physiological energy accumulation for reproduction).
 
 ### B. Endogenous Reproduction (Energy-Dependent & Age-Dependent)
-Reproduction no longer requires an external vacancy. Any living agent reproduces when both developmental and energetic criteria are satisfied:
-1. **Maturity Threshold ($\text{Age} \ge A_{\text{mature}}$):**
-   - Agents must reach sexual/reproductive maturity before reproducing ($A_{\text{mature}} = 20\text{ steps}$).
-   - Prevents infant reproduction and enforces a biological juvenile phase.
-2. **Surplus Energy Threshold ($E_t \ge E_{\text{repro}}$):**
-   - The parent must have accumulated substantial energy reserves ($E_{\text{repro}} = 15.0\text{ units}$).
-3. **Reproduction Cost & Transfer:**
-   - Parent incurs a biological reproduction cost: $\Delta E_{\text{cost}} = 10.0$ units.
-   - Newborn starts with exactly $E_{\text{newborn}} = 10.0$ units.
+Reproduction occurs without artificial vacancy requirements or population limits whenever an individual agent meets physiological criteria:
+1. **Eligibility Criteria:**
+   - Agent is living and active.
+   - Energy $E_i \ge 15.0$ units.
+   - Reproduction cooldown is satisfied (`reproduction_cooldown == 0`).
+   - Agent is within reproductive lifespan ($a_i < 60$ steps).
+   - Agent passes the stochastic reproduction check: $\text{Uniform}(0, 1) < P_i$.
+
+2. **Energy-Dependent Probability Component:**
+   Reproduction probability scales continuously between minimum energy ($15.0$) and target energy ($20.0$), with a maximum of $10\%$ per eligible step:
+   $$P_i = 0.10 \cdot \operatorname{clip}\left(\frac{E_i - 15}{5}, 0, 1\right) \cdot A_i$$
+
+3. **Age-Dependent Reproductive Ability ($A_i$):**
+   $$A_i = \begin{cases}
+   1.0 & a_i \le 45 \\
+   \frac{60 - a_i}{15} & 45 < a_i < 60 \\
+   0.0 & a_i \ge 60
+   \end{cases}$$
+
+4. **Reproduction Cooldown & Timing Rules:**
+   - Minimum interval between births: $T_{\text{cooldown}} = 20$ steps.
+   - Upon a successful birth, the parent's `reproduction_cooldown` is set to $20$.
+   - **Cooldown Step Skipping:** A reproducing parent and a newborn skip the cooldown decrement on the birth step, ensuring a full 20-step refractory and juvenile period.
+   - Failed reproduction attempts do not reset or alter the cooldown.
+   - Newborns initialize with `reproduction_cooldown = 20` (acts as an innate juvenile phase of 20 steps before any reproduction can be considered).
+
+5. **Age Timing at Birth:**
+   - A newborn starts at $\text{Age} = 0$.
+   - **Age Step Skipping:** A newborn does not age on the step it is born. Its first age increment occurs at the end of its first full simulation step.
+
+6. **Parent-Funded Energy Transfer:**
+   - Parent energy cost: $\Delta E_{\text{parent}} = -10.0$ units.
    - Parent retains: $E_{\text{parent}} \gets E_{\text{parent}} - 10.0 \ge 5.0$ units.
-   - **Energy conservation:** $E_{\text{parent, before}} = E_{\text{parent, after}} + E_{\text{newborn}}$ ($\Delta E = 0.000$; strictly zero external subsidy).
-4. **Refractory / Inter-Birth Period ($T_{\text{cooldown}}$):**
-   - To prevent hyper-exponential blooms, an agent that reproduces must wait $T_{\text{cooldown}} = 10\text{ steps}$ before being eligible to reproduce again.
-5. **Soft Density Dependence (Space / Resource Competition):**
-   - While reproduction is endogenous, high local density or crowding can optionally modulate offspring survival if total population exceeds ecological capacity ($N > N_{\text{soft}}$).
+   - Newborn energy: $\Delta E_{\text{newborn}} = +10.0$ units.
+   - **Thermodynamic conservation:** $\Delta E_{\text{birth}} = 0.000$ (strictly zero external subsidy).
 
-### C. Gradual Q-Table Inheritance (Cultural Policy Transmission)
-When a Q-learning agent reproduces, the offspring does not start tabula rasa. It inherits its parent's learned foraging experience with tunable transmission fidelity:
+7. **Population Dynamics (No Artificial Cap):**
+   - Population capacity $N_{\max}$ is completely removed.
+   - Initial population starts at $N_0 = 50$ (38 Fixed, 12 Q).
+   - Population expands and contracts dynamically according to vital rates:
+     $$N_{t+1} = N_t + B_t - D_t$$
+   - The ecosystem is allowed to experience natural population growth, potential overshoot, self-regulation, or resource collapse based purely on ecological feedback.
 
-$$\mathbf{Q}_{\text{offspring}}(s, a) = (1 - \mu) \cdot \mathbf{Q}_{\text{parent}}(s, a) + \mu \cdot \xi(s, a)$$
+### C. Gradual Q-Table Inheritance (Parental Policy Scaffolding)
+When a Q-learning agent reproduces, the offspring inherits a frozen snapshot of the parent's converged Q-table at the moment of birth ($Q_{\text{parent}}$):
+1. **Three Distinct Q-Tables:**
+   - $Q_{\text{parent}}$: An immutable, frozen snapshot of the parent's active Q-table at the moment of birth. Never updated or modified after birth.
+   - $Q_{\text{own}}$: The newborn's independently initialized and updated Q-table (starts empty/neutral).
+   - $Q_{\text{active}}$: The dynamically blended table used for action selection.
 
-Where:
-- $\mathbf{Q}_{\text{parent}}(s, a)$: The parent's converged Q-value for state-action pair $(s, a)$.
-- $\mu \in [0.0, 1.0]$: Policy mutation / noise rate (e.g., $\mu = 0.10$ for $90\%$ cultural fidelity).
-- $\xi(s, a) \sim \mathcal{N}(0, \sigma^2)$: Exploration noise or freshly initialized baseline values.
-- **Fixed Agents:** Offspring of Fixed agents inherit the identical fixed heuristic policy.
-- **Mixed Offspring:** Offspring strictly inherit the parent's kind (`kind = parent.kind`), or with an optional small speciation/mutation probability.
+2. **Active Q-Value Blending:**
+   For an offspring of age $t$ steps ($t = 0, 1, 2, \dots$):
+   $$Q_{\text{active}}(s, a) = (1 - \lambda_t) Q_{\text{own}}(s, a) + \lambda_t Q_{\text{parent}}(s, a)$$
+   $$\lambda_t = 1 - \frac{\min(t, 12)}{12} = \frac{12 - \min(t, 12)}{12}$$
+
+3. **Temporal Dynamics of Influence:**
+   - Step $t=0$ (at birth): $\lambda_0 = 1.00$ ($100\%$ parental scaffolding).
+   - Step $t=6$: $\lambda_6 = 0.50$ ($50\%$ parental, $50\%$ autonomous learning).
+   - Step $t \ge 12$: $\lambda_t = 0.00$ ($100\%$ autonomous experience; parental influence decays to zero).
+
+4. **Learning Update Mechanism:**
+   - Action selection uses $\varepsilon$-greedy exploration over $Q_{\text{active}}$.
+   - Experience updates accumulate in $Q_{\text{own}}$ using the blended baseline:
+     $$Q_{\text{own}}(s, a) \gets Q_{\text{own}}(s, a) + \alpha \left[ r + \gamma \max_{a'} Q_{\text{active}}(s', a') - Q_{\text{active}}(s, a) \right]$$
+     This guarantees that $Q_{\text{own}}$ actively absorbs and refines the parental policy, eliminating catastrophic forgetting or performance drops as $\lambda_t \to 0$.
+
+5. **Fixed Agent Offspring:**
+   - Offspring of Fixed agents inherit the identical fixed heuristic policy.
 
 ### D. Age Structure & Senescence
-To eliminate the artificial step-100 cohort extinction cliff:
-1. **Initial Founder Age Dispersion:**
-   - At step 0, founders are initialized with a distributed age structure:
-     $$\text{Age}_i \sim \mathcal{U}(0, A_{\max} - 1) \quad \text{or staggered cohorts } \{0, 20, 40, 60, 80\}$$
-2. **Gradual Senescence / Mortality:**
+1. **Founder Age Initialization:**
+   - In accordance with causal isolation principles, all 50 founders initialize at $\text{Age} = 0$. Staggered ages are deferred to separate controlled tests so demographic and inheritance effects can be isolated unambiguously.
+2. **Senescence & Mortality:**
    - Maximum biological lifespan remains $A_{\max} = 100\text{ steps}$.
-   - Because founder ages are staggered, retirements occur continuously (e.g., $10$ agents retire every $20$ steps), matching the rate of new juvenile recruitment.
-   - Retiring agents leave the population; any residual unspent energy is logged to `cumulative_retirement_losses`.
+   - Agents reaching $\text{Age} = 100$ retire and are removed from the population.
+   - Any residual unspent energy of retiring or starving agents is recorded in the energy ledger (`cumulative_mortality_losses`).
+
+### E. Comprehensive Energy & Demographic Ledger
+The simulator tracks the complete thermodynamic balance across the entire simulation run:
+$$E_{\text{total}}(t) = E_{\text{initial}} + \sum_{\tau=0}^t E_{\text{harvest}}(\tau) - \sum_{\tau=0}^t E_{\text{maintenance}}(\tau) - E_{\text{mortality\_losses}}(t)$$
+Discrepancy must satisfy $|E_{\text{ledger\_error}}| < 10^{-10}$ at every step.
+
+Detailed metrics recorded per step:
+- Births by agent type ($B_{\text{fixed}}, B_{\text{Q}}$).
+- Parent age and energy at birth.
+- Reproduction attempts vs. successful births.
+- Deaths by starvation vs. old-age retirement ($D_{\text{starve}}, D_{\text{retire}}$).
+- Dynamic population count ($N_t$) and type composition ($N_{\text{fixed}}, N_{\text{Q}}$).
+- Resource regeneration $G(R_t)$, requested harvest, and allocated harvest by type.
+- Q-table inheritance progress ($\lambda_t$) and Q-value convergence.
+
+---
 
 ---
 
@@ -101,32 +158,37 @@ To eliminate the artificial step-100 cohort extinction cliff:
 
 | Dimension | Version C (`sim-3.0.0`) | Version D (`sim-4.0.0`) |
 | :--- | :--- | :--- |
-| **Reproduction Trigger** | Vacancy-driven (only when $N < 50$ after deaths) | **Endogenous physiological state** ($E \ge 15.0$ and $\text{Age} \ge 20$) |
-| **Population Capacity** | Hard static ceiling ($N = 50$) | **Dynamic ecological equilibrium** (emerges from harvest vs. metabolic burn) |
-| **Q-Table Initialization** | Empty dictionary (`q_table = {}`, tabula rasa) | **Gradual inheritance** from parent ($\mathbf{Q}_{\text{child}} \approx \mathbf{Q}_{\text{parent}}$ with mutation) |
-| **Founder Age Structure** | Synchronized cohort (all founders $\text{Age} = 0$) | **Distributed / staggered cohorts** ($\text{Age} \sim \mathcal{U}(0, 99)$) |
-| **Retirement Dynamics** | Synchronized cliff (100% die at step 100) | **Continuous turnover** (steady generational recruitment and retirement) |
-| **Energy Conservation** | Strictly closed ($\Delta E = 0.0$) | **Strictly closed** ($\Delta E = 0.0$; parent transfers exactly $10.0$) |
-| **Harvest Action Space** | Baseline or experimental quotas | **Pre-calibrated sustainable quotas** (Treatment B/C scaling) |
+| **Population Capacity** | Hard static ceiling ($N = 50$) | **No population cap** ($N_{t+1} = N_t + B_t - D_t$; initial $N_0 = 50$) |
+| **Reproduction Trigger** | Vacancy-driven (only when $N < 50$ after deaths) | **Endogenous physiological state** ($E_i \ge 15.0$, $a_i < 60$, Cooldown $= 0$, stochastic $P_i$) |
+| **Reproduction Probability** | Deterministic (100% if eligible & vacancy exists) | **Continuous gradient:** $P_i = 0.10 \cdot \operatorname{clip}\left(\frac{E_i-15}{5}, 0, 1\right) \cdot A_i$ |
+| **Age Influence ($A_i$)** | Binary ($a < 100 \implies$ eligible; $a = 100 \implies$ blocked) | **Gradual senescence:** $1.0$ ($a \le 45$), $\frac{60-a}{15}$ ($45 < a < 60$), $0.0$ ($a \ge 60$) |
+| **Reproduction Cooldown** | None (could reproduce whenever vacancy opened) | **Enforced 20-step refractory interval;** skips decrement on birth step |
+| **Birth Step Aging** | Immediate | **No aging on birth step;** first increment at end of first full step |
+| **Q-Table Inheritance** | Empty dictionary (`q_table = {}`, tabula rasa) | **Gradual 12-step inheritance:** $Q_{\text{active}} = (1-\lambda_t)Q_{\text{own}} + \lambda_t Q_{\text{parent}}$ |
+| **Founder Age Structure** | Synchronized cohort (all founders $\text{Age} = 0$) | **Synchronized cohort (all founders $\text{Age} = 0$)** to isolate vital rates |
+| **Retirement Dynamics** | Synchronized cliff (100% die at step 100) | **Natural demographic turnover** via endogenous reproduction prior to retirement |
+| **Energy Conservation** | Strictly closed ($\Delta E = 0.0$) | **Strictly closed** ($\Delta E_{\text{parent}} = -10.0, \Delta E_{\text{newborn}} = +10.0$) |
+| **Harvest Action Space** | Baseline or experimental quotas | **50% harvest-quota treatment** (`rest`: 0.0, `conservative`: 0.25, `moderate`: 0.5, `aggressive`: 1.0) |
 
 ---
 
 ## 4. Implementation & Validation Roadmap
 
 ### Step 1: Simulator Architecture (`simulator_v4/`)
-- `simulator_v4/parameters.py`: Add parameters for $A_{\text{mature}}$, $E_{\text{repro}}$, $T_{\text{cooldown}}$, inheritance rate $(1-\mu)$, and initial age distribution mode.
-- `simulator_v4/agents.py`: Implement `inherit_q_table()` with tunable mutation.
-- `simulator_v4/reproduction.py`: Implement endogenous physiological reproduction checks.
-- `simulator_v4/simulator.py`: Integrate continuous lifecycle and dynamic population tracking.
+- `simulator_v4/parameters.py`: Add parameters for $E_{\text{min\_repro}} = 15.0$, $E_{\text{target}} = 20.0$, $P_{\max} = 0.10$, $T_{\text{cooldown}} = 20$, $\lambda_{\text{steps}} = 12$, $A_{\text{repro\_max}} = 60$, and the 50% harvest-quota action values. Remove $N_{\max}$.
+- `simulator_v4/agents.py`: Implement distinct $Q_{\text{parent}}$, $Q_{\text{own}}$, and $Q_{\text{active}}$ management; age and cooldown tracking with birth-step decrement skipping.
+- `simulator_v4/reproduction.py`: Implement endogenous physiological reproduction checks, energy transfer ($10.0$), and immutable Q-table snapshotting.
+- `simulator_v4/energy_accounting.py`: Implement complete simulation-wide thermodynamic ledger tracking.
+- `simulator_v4/simulator.py`: Integrate continuous lifecycle without population capacity limits.
 
-### Step 2: Unit Testing Suite (`simulator_v4/tests/`)
-1. Energy conservation: verify $\Delta E < 10^{-10}$ across parent-child transfers.
-2. Reproductive constraints: verify agents with $\text{Age} < 20$ or $E < 15.0$ cannot reproduce.
-3. Cooldown enforcement: verify parents cannot reproduce on consecutive steps within $T_{\text{cooldown}}$.
-4. Inheritance fidelity: verify $\mathbf{Q}_{\text{child}}$ correlates with $\mathbf{Q}_{\text{parent}}$ at fidelity $1-\mu$.
-5. Continuous turnover: verify asynchronous retirements occur without population collapse.
+### Step 2: Unit Testing Suite (`simulator_v4/tests/test_version_d.py`)
+1. **Thermodynamic Conservation:** Verify $\Delta E = 0.000$ on every reproduction event and across the full simulation ledger.
+2. **Probability Gradient & Clipping:** Test $P_i$ across energy range $[0, 30]$ and age range $[0, 100]$.
+3. **Birth-Step Cooldown & Aging Immunity:** Verify that newborn and parent skip cooldown decrement and newborn does not age on the step of birth.
+4. **Q-Table Scaffolding & 12-Step Decay:** Test linear progression of $\lambda_t$ from $1.0$ down to $0.0$, verifying that $Q_{\text{parent}}$ remains unchanged while $Q_{\text{own}}$ updates autonomously.
+5. **No Artificial Population Cap:** Verify population can grow beyond 50 when energy permits.
 
-### Step 3: Phase 1 Calibration & Benchmark Experiments
-- Run matched seeds 1001–1010 for 2,000 steps.
-- Evaluate multi-generational persistence beyond step 100, step 500, and step 1,000.
+### Step 3: Stage 0 Pre-Execution Audit Report
+- Produce exhaustive audit report documenting architecture diffs, unit test outputs, lifecycle order, and energy balance.
+- Submit for user review. No experiment runs will be executed without explicit authorization.
 
