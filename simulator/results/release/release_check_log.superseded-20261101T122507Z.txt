@@ -1,0 +1,94 @@
+RELEASE CHECK
+utc: 20261029T172954Z
+python: 3.12.3 (CPython) on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39
+simulator_version: sim-1.0.0
+parameter_version: params-v1.0
+parameter_hash: 2647943532b29ed61b21d5f898bff56973152447a781847249b8e9973405076b
+simulator_source_sha256: 69fead1263a1583e76f1f79135f0ccc178f9420f14124970d996d56e40a29fcb
+manifest_sha256: 2df526d60905222092650cf913aee277bdbe749a22cb523ba1435287c2a553c4 (540 rows)
+
+== 1. Freeze check ==
+PASS: simulator, parameters, and manifest match release_lock.json
+
+== 2a. Mechanics tests (test_simulator.py) ==
+test_fixed_policy_matches_resource_band (test_simulator.SimulatorMechanicsTests.test_fixed_policy_matches_resource_band) ... ok
+test_offspring_reset_learning_state (test_simulator.SimulatorMechanicsTests.test_offspring_reset_learning_state) ... ok
+test_population_never_exceeds_capacity (test_simulator.SimulatorMechanicsTests.test_population_never_exceeds_capacity) ... ok
+test_resource_stays_within_bounds (test_simulator.SimulatorMechanicsTests.test_resource_stays_within_bounds) ... ok
+test_shock_survival_is_measured_before_replacement (test_simulator.SimulatorMechanicsTests.test_shock_survival_is_measured_before_replacement) ... ok
+test_sudden_shock_halves_resource_at_shock (test_simulator.SimulatorMechanicsTests.test_sudden_shock_halves_resource_at_shock) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.182s
+
+OK
+RESULT: PASS
+
+== 2b. Release-machinery tests (test_runner.py) ==
+test_different_seeds_differ (test_runner.DeterminismTests.test_different_seeds_differ) ... ok
+test_outputs_carry_required_metadata (test_runner.DeterminismTests.test_outputs_carry_required_metadata) ... ok
+test_replacement_events_recorded_for_selection_groups (test_runner.DeterminismTests.test_replacement_events_recorded_for_selection_groups) ... ok
+test_same_row_gives_identical_bytes (test_runner.DeterminismTests.test_same_row_gives_identical_bytes) ... ok
+test_every_row_names_one_parameter_version (test_runner.ManifestTests.test_every_row_names_one_parameter_version) ... ok
+test_freeze_check_detects_parameter_change (test_runner.ManifestTests.test_freeze_check_detects_parameter_change) ... ok
+test_freeze_check_passes_on_release_candidate (test_runner.ManifestTests.test_freeze_check_passes_on_release_candidate) ... ok
+test_row_counts_and_uniqueness (test_runner.ManifestTests.test_row_counts_and_uniqueness) ... ok
+test_thirty_matched_seeds_per_condition (test_runner.ManifestTests.test_thirty_matched_seeds_per_condition) ... ok
+test_aggregate_preserves_previous_aggregate (test_runner.NoOverwriteTests.test_aggregate_preserves_previous_aggregate) ... ok
+test_completed_run_is_not_rewritten (test_runner.NoOverwriteTests.test_completed_run_is_not_rewritten) ... ok
+test_extinction_is_retained_and_labelled (test_runner.NoOverwriteTests.test_extinction_is_retained_and_labelled) ... ok
+test_failed_run_is_preserved_with_traceback (test_runner.NoOverwriteTests.test_failed_run_is_preserved_with_traceback) ... ok
+test_interrupted_run_is_preserved_and_labelled (test_runner.NoOverwriteTests.test_interrupted_run_is_preserved_and_labelled) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 3.054s
+
+OK
+RESULT: PASS
+
+== 3. Determinism check (each sampled run executed twice per process; two processes) ==
+-- process with PYTHONHASHSEED=1 --
+python_version	3.12.3
+gradual_decline__fixed_only__s1001	IDENTICAL	summary.json=fd4d4b893e0c508f	timeseries.csv=02d965a99c168a4d	replacement_events.csv=8bf627a7d7adcfb2
+gradual_decline__q_only__s1001	IDENTICAL	summary.json=3a3bcdef4f37961c	timeseries.csv=6a24a5baf77d8a1f	replacement_events.csv=adfa66b273076e74
+gradual_decline__static_mixture__s1001	IDENTICAL	summary.json=7ad1c80a01ab5685	timeseries.csv=dd2c0e1f89ea4558	replacement_events.csv=740526721b21a9da
+gradual_decline__evolving_joint__s1001	IDENTICAL	summary.json=bf0cbc87214947b7	timeseries.csv=b6a4fb0ea4bf13be	replacement_events.csv=03167b1ac43ac56a
+sudden_shock__fixed_only__s1001	IDENTICAL	summary.json=0b3e785d3ffd2b6c	timeseries.csv=404a8caf0aa7cbcf	replacement_events.csv=e12f03ea5a533b2e
+sudden_shock__q_only__s1001	IDENTICAL	summary.json=506dff7ac8854dcc	timeseries.csv=ca1d89c0c2fc21ac	replacement_events.csv=16384d7976a006fb
+sudden_shock__static_mixture__s1001	IDENTICAL	summary.json=c0d69d3ba6188d31	timeseries.csv=1aca4ae1108121b6	replacement_events.csv=376bd34791b6138d
+sudden_shock__evolving_joint__s1001	IDENTICAL	summary.json=f9e5a59e6c7e2dd0	timeseries.csv=73e74dfedace7350	replacement_events.csv=12bf0a7fcc29c8fc
+gradual_decline__evolving_survival__s1001	IDENTICAL	summary.json=254fd1110dd59921	timeseries.csv=1ae70ed6a31f1ce6	replacement_events.csv=a999eda74a88bf6e
+gradual_decline__evolving_reward__s1001	IDENTICAL	summary.json=7e9a33965c02df4e	timeseries.csv=6e9fab35180cecaa	replacement_events.csv=9a03cb20fc979e43
+sudden_shock__evolving_survival__s1001	IDENTICAL	summary.json=56f6cfd3acb5443a	timeseries.csv=d38bff9242a3f79a	replacement_events.csv=0254309be6822c75
+sudden_shock__evolving_reward__s1001	IDENTICAL	summary.json=5dc4ab2d326cf2dd	timeseries.csv=58c855da8c3bf4f3	replacement_events.csv=0158b8c8c2bae250
+stationary__fixed_only__s1001	IDENTICAL	summary.json=b27e8392e030826a	timeseries.csv=7e9e2125255f7842	replacement_events.csv=4abf7ca59ba968e6
+stationary__q_only__s1001	IDENTICAL	summary.json=d192719e3c0ee111	timeseries.csv=f21ca4425576d907	replacement_events.csv=396d99cbcb2eba83
+stationary__static_mixture__s1001	IDENTICAL	summary.json=c134d7c4624bf8aa	timeseries.csv=eb53c8cf7377528e	replacement_events.csv=6289bd1d5a1dad3b
+stationary__evolving_joint__s1001	IDENTICAL	summary.json=3aa81bae7bbd16e7	timeseries.csv=5f67d83b7b786520	replacement_events.csv=3c64e81e7bcf5a21
+stationary__evolving_survival__s1001	IDENTICAL	summary.json=b394ce48f5bae2c5	timeseries.csv=1a52bf694959c421	replacement_events.csv=b06bbf765c048277
+stationary__evolving_reward__s1001	IDENTICAL	summary.json=c672d919c67a837d	timeseries.csv=74548c179c71eced	replacement_events.csv=2035e75b86e91f3c
+DETERMINISM: PASS
+-- process with PYTHONHASHSEED=2 --
+python_version	3.12.3
+gradual_decline__fixed_only__s1001	IDENTICAL	summary.json=fd4d4b893e0c508f	timeseries.csv=02d965a99c168a4d	replacement_events.csv=8bf627a7d7adcfb2
+gradual_decline__q_only__s1001	IDENTICAL	summary.json=3a3bcdef4f37961c	timeseries.csv=6a24a5baf77d8a1f	replacement_events.csv=adfa66b273076e74
+gradual_decline__static_mixture__s1001	IDENTICAL	summary.json=7ad1c80a01ab5685	timeseries.csv=dd2c0e1f89ea4558	replacement_events.csv=740526721b21a9da
+gradual_decline__evolving_joint__s1001	IDENTICAL	summary.json=bf0cbc87214947b7	timeseries.csv=b6a4fb0ea4bf13be	replacement_events.csv=03167b1ac43ac56a
+sudden_shock__fixed_only__s1001	IDENTICAL	summary.json=0b3e785d3ffd2b6c	timeseries.csv=404a8caf0aa7cbcf	replacement_events.csv=e12f03ea5a533b2e
+sudden_shock__q_only__s1001	IDENTICAL	summary.json=506dff7ac8854dcc	timeseries.csv=ca1d89c0c2fc21ac	replacement_events.csv=16384d7976a006fb
+sudden_shock__static_mixture__s1001	IDENTICAL	summary.json=c0d69d3ba6188d31	timeseries.csv=1aca4ae1108121b6	replacement_events.csv=376bd34791b6138d
+sudden_shock__evolving_joint__s1001	IDENTICAL	summary.json=f9e5a59e6c7e2dd0	timeseries.csv=73e74dfedace7350	replacement_events.csv=12bf0a7fcc29c8fc
+gradual_decline__evolving_survival__s1001	IDENTICAL	summary.json=254fd1110dd59921	timeseries.csv=1ae70ed6a31f1ce6	replacement_events.csv=a999eda74a88bf6e
+gradual_decline__evolving_reward__s1001	IDENTICAL	summary.json=7e9a33965c02df4e	timeseries.csv=6e9fab35180cecaa	replacement_events.csv=9a03cb20fc979e43
+sudden_shock__evolving_survival__s1001	IDENTICAL	summary.json=56f6cfd3acb5443a	timeseries.csv=d38bff9242a3f79a	replacement_events.csv=0254309be6822c75
+sudden_shock__evolving_reward__s1001	IDENTICAL	summary.json=5dc4ab2d326cf2dd	timeseries.csv=58c855da8c3bf4f3	replacement_events.csv=0158b8c8c2bae250
+stationary__fixed_only__s1001	IDENTICAL	summary.json=b27e8392e030826a	timeseries.csv=7e9e2125255f7842	replacement_events.csv=4abf7ca59ba968e6
+stationary__q_only__s1001	IDENTICAL	summary.json=d192719e3c0ee111	timeseries.csv=f21ca4425576d907	replacement_events.csv=396d99cbcb2eba83
+stationary__static_mixture__s1001	IDENTICAL	summary.json=c134d7c4624bf8aa	timeseries.csv=eb53c8cf7377528e	replacement_events.csv=6289bd1d5a1dad3b
+stationary__evolving_joint__s1001	IDENTICAL	summary.json=3aa81bae7bbd16e7	timeseries.csv=5f67d83b7b786520	replacement_events.csv=3c64e81e7bcf5a21
+stationary__evolving_survival__s1001	IDENTICAL	summary.json=b394ce48f5bae2c5	timeseries.csv=1a52bf694959c421	replacement_events.csv=b06bbf765c048277
+stationary__evolving_reward__s1001	IDENTICAL	summary.json=c672d919c67a837d	timeseries.csv=74548c179c71eced	replacement_events.csv=2035e75b86e91f3c
+DETERMINISM: PASS
+Digests identical across the two processes: YES
+
+OVERALL: READY FOR MAIN BATCH

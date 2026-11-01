@@ -1,0 +1,10 @@
+# run_id: gradual_decline__fixed_only__s1021
+# simulator_version: sim-1.0.0
+# parameter_version: params-v1.0
+# parameter_hash: 2647943532b29ed61b21d5f898bff56973152447a781847249b8e9973405076b
+# python_version: 3.15.2 (CPython)
+# seed: 1021
+# group: fixed_only
+# scenario: gradual_decline
+# format: CSV with '#' comment header; read with pandas.read_csv(path, comment='#')
+step,agent_id,agent_type,age,lifetime_reward,survival_score,reward_score,fitness,offspring_selected

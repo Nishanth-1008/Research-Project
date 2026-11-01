@@ -1,0 +1,59 @@
+{
+  "files": {
+    "replacement_events.csv": {
+      "rows": 0,
+      "sha256": "c6da886e295a48e46f4703d7cd48ea2c22daf2ce0bc378b87de50862e8cc8a92"
+    },
+    "timeseries.csv": {
+      "rows": 2000,
+      "sha256": "8c421eb45bf20248f912c847fd3420d81df11a665149a3a908582e27334239b1"
+    }
+  },
+  "group": "q_only",
+  "parameter_hash": "2647943532b29ed61b21d5f898bff56973152447a781847249b8e9973405076b",
+  "parameter_version": "params-v1.0",
+  "parameters": {
+    "baseline_regeneration": 0.04,
+    "discount_factor": 0.95,
+    "epsilon_minimum": 0.02,
+    "epsilon_start": 0.2,
+    "gradual_end": 1000,
+    "gradual_start": 500,
+    "initial_energy": 10.0,
+    "initial_resource": 350.0,
+    "learning_rate": 0.1,
+    "maintenance_cost": 0.2,
+    "maximum_age": 100,
+    "maximum_energy": 20.0,
+    "population_capacity": 50,
+    "replacement_interval": 20,
+    "resource_capacity": 500.0,
+    "run_length": 2000,
+    "selection_strength": 2.0,
+    "shock_step": 1000,
+    "stressed_regeneration": 0.025
+  },
+  "phase": "core",
+  "planned_steps": 2000,
+  "python_implementation": "CPython",
+  "python_version": "3.15.2",
+  "results": {
+    "extinct": false,
+    "final_q_learning_share": 1.0,
+    "founder_injections": 0,
+    "group": "q_only",
+    "mean_resource": 16.066845212021224,
+    "mean_reward": 0.10928267916005036,
+    "post_disturbance_survival": null,
+    "recovery_time": null,
+    "replacements": 1000,
+    "scenario": "gradual_decline",
+    "seed": 1008,
+    "steps_completed": 2000
+  },
+  "run_id": "gradual_decline__q_only__s1008",
+  "scenario": "gradual_decline",
+  "seed": 1008,
+  "simulator_version": "sim-1.0.0",
+  "status": "complete"
+}
