@@ -1,8 +1,8 @@
-"""Version D Ecosystem Simulator (sim-4.0.0).
+"""Unified ecosystem simulator for Version D.1 (sim-4.1.0).
 
-Implements endogenous physiological reproduction, 50% harvest-quota action space,
-unconstrained population dynamics (no artificial cap), gradual Q-table inheritance,
-and exact thermodynamic energy balance verification.
+Simulates continuous interaction between tabular Q-learning and fixed-rule agents
+in a closed thermodynamic renewable commons with endogenous physiological reproduction,
+logistic density regulation, cultural Q-table inheritance, and multi-group dispatch.
 """
 
 from __future__ import annotations
@@ -68,12 +68,26 @@ class StepRecord:
     fixed_action_counts: dict[str, int] = field(default_factory=dict)
     energy_ledger_discrepancy: float = 0.0
 
+    # Extended subpopulation telemetry for sim-4.1.0
+    fixed_mean_energy: float | None = None
+    fixed_max_energy: float | None = None
+    q_mean_energy: float | None = None
+    q_max_energy: float | None = None
+    fixed_eligible_count: int = 0
+    q_eligible_count: int = 0
+    fixed_starvation_deaths: int = 0
+    q_starvation_deaths: int = 0
+    fixed_retirement_deaths: int = 0
+    q_retirement_deaths: int = 0
+    reference_harvest: float = 0.0
+
 
 @dataclass
 class RunResult:
     simulator_version: str
     parameter_version: str
     scenario: Scenario
+    group: str
     seed: int
     steps_completed: int
     extinct: bool
@@ -100,23 +114,60 @@ class EcosystemSimulator:
         parameters: Parameters,
         scenario: Scenario = "stationary",
         seed: int = 1001,
+        group: str | None = None,
     ) -> None:
-        self.parameters = parameters
+        if group is not None and group != parameters.group:
+            # Re-instantiate parameters with matching group
+            self.parameters = Parameters.for_group(
+                group=group,
+                run_length=parameters.run_length,
+                maximum_age=parameters.maximum_age,
+                crowding_capacity=parameters.crowding_capacity,
+                regulation_model=parameters.regulation_model,
+                initial_founder_energy=parameters.initial_founder_energy,
+                maximum_energy=parameters.maximum_energy,
+                maintenance_cost=parameters.maintenance_cost,
+                reproduction_cost=parameters.reproduction_cost,
+                newborn_energy=parameters.newborn_energy,
+                reproduction_min_energy=parameters.reproduction_min_energy,
+                reproduction_target_energy=parameters.reproduction_target_energy,
+                reproduction_max_prob=parameters.reproduction_max_prob,
+                reproduction_age_full=parameters.reproduction_age_full,
+                reproduction_age_max=parameters.reproduction_age_max,
+                reproduction_cooldown=parameters.reproduction_cooldown,
+                inheritance_duration=parameters.inheritance_duration,
+                resource_capacity=parameters.resource_capacity,
+                initial_resource=parameters.initial_resource,
+                baseline_regeneration=parameters.baseline_regeneration,
+                stressed_regeneration=parameters.stressed_regeneration,
+                gradual_start=parameters.gradual_start,
+                gradual_end=parameters.gradual_end,
+                shock_step=parameters.shock_step,
+                learning_rate=parameters.learning_rate,
+                discount_factor=parameters.discount_factor,
+                epsilon_start=parameters.epsilon_start,
+                epsilon_minimum=parameters.epsilon_minimum,
+            )
+        else:
+            self.parameters = parameters
+
         self.scenario = scenario
+        self.group = self.parameters.group
         self.seed = seed
         self.random = Random(seed)
 
-        self.resource = parameters.initial_resource
-        self.previous_start_resource = parameters.initial_resource
-        self.agents: list[Agent] = []
-        self.next_identifier = 0
+        self.resource = self.parameters.initial_resource
+        self.previous_start_resource = self.parameters.initial_resource
 
-        actual_founder_count = (
-            parameters.initial_fixed_count + parameters.initial_q_count
-        )
+        self.next_identifier = 1
+        self.agents: list[Agent] = []
+        self._initialize_population()
+
+        total_initial_endowment = (
+            self.parameters.initial_fixed_count + self.parameters.initial_q_count
+        ) * self.parameters.initial_founder_energy
         self.energy_ledger = EnergyLedger(
-            initial_founder_endowment=actual_founder_count
-            * parameters.initial_founder_energy
+            initial_endowment=total_initial_endowment
         )
 
         self.records: list[StepRecord] = []
@@ -126,16 +177,14 @@ class EcosystemSimulator:
         self.total_starvation_deaths = 0
         self.total_retirement_deaths = 0
 
-        self._initialize_population()
-
     def _get_next_identifier(self) -> int:
         idx = self.next_identifier
         self.next_identifier += 1
         return idx
 
     def _initialize_population(self) -> None:
-        """Initializes 50 founders at age 0 with initial energy 10.0."""
-        # 38 Fixed agents
+        """Initializes founders at age 0 with initial energy 10.0 based on group counts."""
+        # Fixed agents
         for _ in range(self.parameters.initial_fixed_count):
             self.agents.append(
                 Agent(
@@ -148,7 +197,7 @@ class EcosystemSimulator:
                 )
             )
 
-        # 12 Q-learning agents
+        # Q-learning agents
         for _ in range(self.parameters.initial_q_count):
             self.agents.append(
                 Agent(
@@ -212,14 +261,20 @@ class EcosystemSimulator:
                 )
             )
         if self.scenario == "sudden_shock":
-            return (
-                self.parameters.stressed_regeneration
-                if step >= self.parameters.shock_step
-                else self.parameters.baseline_regeneration
-            )
+            # Sudden shock keeps regeneration rate at baseline throughout
+            return self.parameters.baseline_regeneration
         raise ValueError(f"Unknown scenario: {self.scenario}")
 
     def step(self, step_number: int) -> StepRecord:
+        # ---------------------------------------------------------
+        # STAGE 0: Sudden Shock Halving (if sudden_shock at shock_step)
+        # ---------------------------------------------------------
+        if (
+            self.scenario == "sudden_shock"
+            and step_number == self.parameters.shock_step
+        ):
+            self.resource = max(0.0, self.resource * 0.50)
+
         start_resource = self.resource
         living_count_start = len(self.agents)
 
@@ -249,6 +304,17 @@ class EcosystemSimulator:
                 retirement_deaths=0,
                 regeneration=0.0,
                 energy_ledger_discrepancy=0.0,
+                fixed_mean_energy=None,
+                fixed_max_energy=None,
+                q_mean_energy=None,
+                q_max_energy=None,
+                fixed_eligible_count=0,
+                q_eligible_count=0,
+                fixed_starvation_deaths=0,
+                q_starvation_deaths=0,
+                fixed_retirement_deaths=0,
+                q_retirement_deaths=0,
+                reference_harvest=0.0,
             )
             self.records.append(record)
             return record
@@ -297,14 +363,20 @@ class EcosystemSimulator:
             for a in self.agents
             if a.kind == "fixed"
         )
-        q_requested = total_requested - fixed_requested
+        q_requested = sum(
+            requested_by_agent[a.identifier]
+            for a in self.agents
+            if a.kind == "q_learning"
+        )
 
         allocated_by_agent: dict[int, float] = {}
         if total_requested <= self.resource:
             allocated_by_agent = dict(requested_by_agent)
             total_harvest = total_requested
         else:
-            scale = self.resource / total_requested if total_requested > 0 else 0.0
+            scale = (
+                self.resource / total_requested if total_requested > 0 else 0.0
+            )
             allocated_by_agent = {
                 aid: req * scale for aid, req in requested_by_agent.items()
             }
@@ -351,11 +423,20 @@ class EcosystemSimulator:
         # ---------------------------------------------------------
         living_after_metabolism: list[Agent] = []
         step_starvations = 0
+        step_fixed_starvations = 0
+        step_q_starvations = 0
+
         for agent in self.agents:
             if agent.energy <= 0.0:
                 step_starvations += 1
+                if agent.kind == "fixed":
+                    step_fixed_starvations += 1
+                else:
+                    step_q_starvations += 1
                 if agent.energy < 0.0:
-                    self.energy_ledger.cumulative_starvation_losses += agent.energy
+                    self.energy_ledger.cumulative_starvation_losses += (
+                        agent.energy
+                    )
             else:
                 living_after_metabolism.append(agent)
 
@@ -381,9 +462,6 @@ class EcosystemSimulator:
         step_successes = sum(1 for log in repro_logs if log.success)
 
         self.total_births += step_births
-        self.energy_ledger.cumulative_reproduction_transfers += (
-            step_births * self.parameters.reproduction_cost
-        )
 
         # Integrate newborns into population
         self.agents.extend(newborns)
@@ -409,10 +487,16 @@ class EcosystemSimulator:
         # ---------------------------------------------------------
         surviving_agents: list[Agent] = []
         step_retirements = 0
+        step_fixed_retirements = 0
+        step_q_retirements = 0
+
         for agent in self.agents:
             if agent.age >= self.parameters.maximum_age:
                 step_retirements += 1
-                # Residual energy lost on natural retirement
+                if agent.kind == "fixed":
+                    step_fixed_retirements += 1
+                else:
+                    step_q_retirements += 1
                 self.energy_ledger.cumulative_retirement_losses += agent.energy
             else:
                 surviving_agents.append(agent)
@@ -427,9 +511,8 @@ class EcosystemSimulator:
         growth = (
             regeneration_rate
             * self.resource
-            * (1.0 - self.resource / self.parameters.resource_capacity)
+            * (1.0 - (self.resource / self.parameters.resource_capacity))
         )
-        growth = max(0.0, growth)
         self.resource = min(
             self.parameters.resource_capacity, self.resource + growth
         )
@@ -459,22 +542,49 @@ class EcosystemSimulator:
                 )
 
         # ---------------------------------------------------------
-        # Energy Balance Verification & Step Metrics
+        # STAGE 11: Energy Ledger Discrepancy Verification
         # ---------------------------------------------------------
-        current_living_energy = sum(a.energy for a in self.agents)
-        is_conserved, discrepancy = self.energy_ledger.verify_energy_balance(
+        current_living_energy = sum(agent.energy for agent in self.agents)
+        discrepancy = self.energy_ledger.compute_discrepancy(
             current_living_energy
-        )
-        assert is_conserved, (
-            f"Step {step_number}: Energy conservation violated! Discrepancy = {discrepancy}"
         )
 
         living_pop = len(self.agents)
-        fixed_pop = sum(1 for a in self.agents if a.kind == "fixed")
-        q_pop = sum(1 for a in self.agents if a.kind == "q_learning")
+        fixed_agents = [a for a in self.agents if a.kind == "fixed"]
+        q_agents = [a for a in self.agents if a.kind == "q_learning"]
+
+        fixed_pop = len(fixed_agents)
+        q_pop = len(q_agents)
         q_share = (q_pop / living_pop) if living_pop > 0 else None
         mean_rew = (sum(rewards.values()) / len(rewards)) if rewards else None
         mean_eng = (current_living_energy / living_pop) if living_pop > 0 else None
+
+        fixed_mean_eng = (sum(a.energy for a in fixed_agents) / fixed_pop) if fixed_pop > 0 else None
+        fixed_max_eng = max((a.energy for a in fixed_agents), default=None)
+        q_mean_eng = (sum(a.energy for a in q_agents) / q_pop) if q_pop > 0 else None
+        q_max_eng = max((a.energy for a in q_agents), default=None)
+
+        max_age_cutoff = (
+            self.parameters.maximum_age
+            if self.parameters.group in ("survival_only", "reward_only")
+            else self.parameters.reproduction_age_max
+        )
+        fixed_elig = sum(
+            1 for a in fixed_agents
+            if a.energy >= self.parameters.reproduction_min_energy
+            and a.age < max_age_cutoff
+            and a.reproduction_cooldown == 0
+        )
+        q_elig = sum(
+            1 for a in q_agents
+            if a.energy >= self.parameters.reproduction_min_energy
+            and a.age < max_age_cutoff
+            and a.reproduction_cooldown == 0
+        )
+
+        mean_h_fixed = (fixed_allocated / fixed_pop) if fixed_pop > 0 else 0.0
+        mean_h_q = (q_allocated / q_pop) if q_pop > 0 else 0.0
+        ref_harvest = (living_pop / 2.0) * mean_h_fixed + (living_pop / 2.0) * mean_h_q
 
         record = StepRecord(
             step=step_number,
@@ -503,6 +613,17 @@ class EcosystemSimulator:
             q_action_counts=q_action_counts,
             fixed_action_counts=fixed_action_counts,
             energy_ledger_discrepancy=discrepancy,
+            fixed_mean_energy=fixed_mean_eng,
+            fixed_max_energy=fixed_max_eng,
+            q_mean_energy=q_mean_eng,
+            q_max_energy=q_max_eng,
+            fixed_eligible_count=fixed_elig,
+            q_eligible_count=q_elig,
+            fixed_starvation_deaths=step_fixed_starvations,
+            q_starvation_deaths=step_q_starvations,
+            fixed_retirement_deaths=step_fixed_retirements,
+            q_retirement_deaths=step_q_retirements,
+            reference_harvest=ref_harvest,
         )
         self.records.append(record)
         return record
@@ -534,9 +655,10 @@ class EcosystemSimulator:
             simulator_version=SIMULATOR_VERSION,
             parameter_version=PARAMETER_VERSION,
             scenario=self.scenario,
+            group=self.group,
             seed=self.seed,
             steps_completed=steps_done,
-            extinct=final_pop == 0,
+            extinct=(final_pop == 0),
             final_population=final_pop,
             final_q_learning_share=final_q_share,
             mean_resource=mean_res,

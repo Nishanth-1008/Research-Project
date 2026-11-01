@@ -39,6 +39,7 @@ For the complete, audited scientific lineage from Version A through Stage 3B and
   - [Version D Design Decisions Required](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_design_decisions_required.md)
   - [Version D Final Research Design Review](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_research_design_review.md)
   - [Version D Final Research Design Blockers](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d_final_design_blockers.md)
+  - [Version D.1 Pre-Implementation Plan & Readiness Audit](file:///Users/nish/home/Research%20Project/calibration_logs/version_d/version_d1_implementation_plan.md)
 - **`simulator/`**: Version A simulator (`sim-1.0.0`).
 - **`simulator_v2/`**: Version B simulator (`sim-2.0.0`).
 - **`simulator_v3/`**: Version C simulator (`sim-3.0.0`) and Stage 3 mechanism isolation experiments.

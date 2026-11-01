@@ -1,4 +1,4 @@
-"""Endogenous physiological reproduction and cultural inheritance mechanism for Version D."""
+"""Endogenous physiological reproduction and cultural inheritance mechanism for Version D.1."""
 
 from __future__ import annotations
 
@@ -31,27 +31,59 @@ class ReproductionLog:
 
 
 def calculate_reproduction_probability(
-    energy: float, age: int, parameters: Parameters
+    energy: float,
+    age: int,
+    parameters: Parameters,
+    living_population: int = 50,
 ) -> float:
     """
-    Computes reproduction probability P_i = 0.10 * clip((E - 15)/5, 0, 1) * A_i
-    where A_i = 1 for age <= 45, (60 - age)/15 for 45 < age < 60, 0 for age >= 60.
+    Computes reproduction probability P_i' subject to group vital-rate rules and logistic crowding:
+    - Standard (evolving_joint, static_mixture, fixed_only, q_only):
+      P_i = P_max * clip((E - 15)/5, 0, 1) * A(age) * discount
+    - Survival-only:
+      P_i = P_max * (age / A_max) * discount (subject to E >= 15.0)
+    - Reward-only:
+      P_i = P_max * clip((E - 15)/5, 0, 1) * 1.0 * discount
+    where discount = max(0, 1 - living_population / crowding_capacity) if regulation_model == 'logistic'.
     """
-    if energy < parameters.reproduction_min_energy or age >= parameters.reproduction_age_max:
+    if energy < parameters.reproduction_min_energy:
         return 0.0
 
-    energy_span = parameters.reproduction_target_energy - parameters.reproduction_min_energy
-    energy_factor = min(1.0, max(0.0, (energy - parameters.reproduction_min_energy) / energy_span))
-
-    if age <= parameters.reproduction_age_full:
-        age_factor = 1.0
-    elif age < parameters.reproduction_age_max:
-        age_span = float(parameters.reproduction_age_max - parameters.reproduction_age_full)
-        age_factor = (parameters.reproduction_age_max - age) / age_span
+    # Group-specific vital rate base calculation
+    if parameters.group == "survival_only":
+        if age >= parameters.maximum_age:
+            return 0.0
+        base_prob = parameters.reproduction_max_prob * (age / float(parameters.maximum_age))
+    elif parameters.group == "reward_only":
+        energy_span = parameters.reproduction_target_energy - parameters.reproduction_min_energy
+        energy_factor = min(1.0, max(0.0, (energy - parameters.reproduction_min_energy) / energy_span))
+        base_prob = parameters.reproduction_max_prob * energy_factor
     else:
-        age_factor = 0.0
+        # Standard joint survival & reward vital rate
+        if age >= parameters.reproduction_age_max:
+            return 0.0
+        energy_span = parameters.reproduction_target_energy - parameters.reproduction_min_energy
+        energy_factor = min(1.0, max(0.0, (energy - parameters.reproduction_min_energy) / energy_span))
 
-    return parameters.reproduction_max_prob * energy_factor * age_factor
+        if age <= parameters.reproduction_age_full:
+            age_factor = 1.0
+        elif age < parameters.reproduction_age_max:
+            age_span = float(parameters.reproduction_age_max - parameters.reproduction_age_full)
+            age_factor = (parameters.reproduction_age_max - age) / age_span
+        else:
+            age_factor = 0.0
+
+        base_prob = parameters.reproduction_max_prob * energy_factor * age_factor
+
+    # Population regulation attenuation
+    if parameters.regulation_model == "logistic":
+        density_discount = max(
+            0.0, 1.0 - (living_population / float(parameters.crowding_capacity))
+        )
+    else:
+        density_discount = 1.0
+
+    return base_prob * density_discount
 
 
 def perform_endogenous_reproduction(
@@ -63,23 +95,29 @@ def perform_endogenous_reproduction(
 ) -> tuple[list[Agent], list[ReproductionLog]]:
     """
     Executes endogenous reproduction for eligible agents:
-    - Any agent with energy >= 15.0, age < 60, and reproduction_cooldown == 0 evaluates P_i.
-    - If draw < P_i:
+    - Any agent with energy >= 15.0, age < max_age, and reproduction_cooldown == 0 evaluates P_i'.
+    - If draw < P_i':
         * Parent transfers exactly 10.0 energy to newborn (parent.energy -= 10.0, newborn.energy = 10.0).
         * Parent sets reproduction_cooldown = 20 and skips cooldown decrement on birth step.
         * Newborn is created at age = 0, receives cooldown = 20, and skips cooldown and aging on birth step.
-        * If Q-learning agent, newborn receives an immutable snapshot of parent's active Q-table.
-    - No artificial population cap is enforced.
+        * Newborn type is assigned via clonal lineage, except in static_mixture which uses deficit-targeted assignment.
+        * If Q-learning agent, newborn receives parent's active Q-table snapshot (or clean table if Fixed parent in static mix).
     """
     newborns: list[Agent] = []
     logs: list[ReproductionLog] = []
 
-    # Snapshot eligible parents so new births during this step cannot reproduce on the same step
+    # Maximum age check depends on group
+    max_age_cutoff = (
+        parameters.maximum_age
+        if parameters.group in ("survival_only", "reward_only")
+        else parameters.reproduction_age_max
+    )
+
     eligible_candidates = [
         agent
         for agent in living_agents
         if agent.energy >= parameters.reproduction_min_energy
-        and agent.age < parameters.reproduction_age_max
+        and agent.age < max_age_cutoff
         and agent.reproduction_cooldown == 0
     ]
 
@@ -88,7 +126,15 @@ def perform_endogenous_reproduction(
         if parent.energy < parameters.reproduction_min_energy:
             continue
 
-        prob = calculate_reproduction_probability(parent.energy, parent.age, parameters)
+        # Effective current living population includes living agents + newborns already produced this step
+        current_living_count = len(living_agents) + len(newborns)
+
+        prob = calculate_reproduction_probability(
+            parent.energy,
+            parent.age,
+            parameters,
+            living_population=current_living_count,
+        )
         if prob <= 0.0:
             continue
 
@@ -102,15 +148,70 @@ def perform_endogenous_reproduction(
             parent.skip_cooldown_decrement = True
 
             newborn_id = next_identifier_getter()
-            q_snapshot = (
-                parent.get_q_snapshot(parameters.inheritance_duration)
-                if parent.kind == "q_learning"
-                else None
-            )
+
+            # Offspring type determination
+            if parameters.group == "static_mixture":
+                current_fixed = sum(1 for a in living_agents if a.kind == "fixed") + sum(1 for a in newborns if a.kind == "fixed")
+                current_q = sum(1 for a in living_agents if a.kind == "q_learning") + sum(1 for a in newborns if a.kind == "q_learning")
+                total_current = current_fixed + current_q
+
+                # Deficit-targeted assignment
+                if current_fixed == 0 and current_q > 0:
+                    newborn_kind: AgentType = "fixed"
+                elif current_q == 0 and current_fixed > 0:
+                    newborn_kind = "q_learning"
+                elif total_current < 50:
+                    delta_fixed = 25 - current_fixed
+                    delta_q = 25 - current_q
+                    if delta_fixed > delta_q:
+                        newborn_kind = "fixed"
+                    elif delta_q > delta_fixed:
+                        newborn_kind = "q_learning"
+                    else:
+                        newborn_kind = "fixed" if random_gen.random() < 0.5 else "q_learning"
+                elif total_current == 50:
+                    if current_fixed < 25:
+                        newborn_kind = "fixed"
+                    elif current_q < 25:
+                        newborn_kind = "q_learning"
+                    else:
+                        newborn_kind = "fixed" if random_gen.random() < 0.5 else "q_learning"
+                else:  # total_current > 50
+                    if current_fixed < total_current / 2.0:
+                        newborn_kind = "fixed"
+                    elif current_q < total_current / 2.0:
+                        newborn_kind = "q_learning"
+                    else:
+                        newborn_kind = "fixed" if random_gen.random() < 0.5 else "q_learning"
+
+                # Inheritance isolation for static mixture
+                if newborn_kind == "fixed":
+                    q_snapshot = None
+                else:
+                    # Q-newborn inherits parent Q only if parent was Q; Fixed parent yields clean tabula rasa
+                    q_snapshot = (
+                        parent.get_q_snapshot(parameters.inheritance_duration)
+                        if parent.kind == "q_learning"
+                        else None
+                    )
+            elif parameters.group == "fixed_only":
+                newborn_kind = "fixed"
+                q_snapshot = None
+            elif parameters.group == "q_only":
+                newborn_kind = "q_learning"
+                q_snapshot = parent.get_q_snapshot(parameters.inheritance_duration)
+            else:
+                # Clonal lineage inheritance (evolving_joint, survival_only, reward_only)
+                newborn_kind = parent.kind
+                q_snapshot = (
+                    parent.get_q_snapshot(parameters.inheritance_duration)
+                    if parent.kind == "q_learning"
+                    else None
+                )
 
             newborn = Agent(
                 identifier=newborn_id,
-                kind=parent.kind,
+                kind=newborn_kind,
                 energy=parameters.newborn_energy,
                 age=0,
                 born_step=step_number,
@@ -132,7 +233,7 @@ def perform_endogenous_reproduction(
                     energy_transferred=parameters.reproduction_cost,
                     parent_energy_after=energy_after,
                     newborn_id=newborn_id,
-                    newborn_type=parent.kind,
+                    newborn_type=newborn_kind,
                     reproduction_probability=prob,
                     success=True,
                     failure_reason=None,
