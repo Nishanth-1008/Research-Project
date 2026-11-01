@@ -60,3 +60,4 @@
 ## 2. Updated Scientific Conclusion for Stage 2
 
 > *"Under the tested model conditions, fixed-rule agents maintained the renewable resource and population indefinitely, while the tested Q-learning populations depleted the resource and eventually became extinct. Changes to the tested reward penalties and learning parameters did not prevent this outcome. In mixed populations, increasing the proportion of fixed-rule agents delayed resource depletion (from 8.9 steps at 0% Fixed to 30.2 steps at 76% Fixed) but did not prevent extinction. Detailed event tracing reveals that asymmetric harvesting and type-restricted reproduction jointly contributed to this result: conservative fixed agents starved due to unilateral resting, while Q-learning agents with reproductive surplus at step 80 were barred by type-restricted quotas from funding fixed vacancies. Stage 3 is required to isolate the independent contribution of reproductive barriers from resource competition."*
+
