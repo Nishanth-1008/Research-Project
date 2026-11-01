@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 SIMULATOR_VERSION = "sim-4.1.0"
-PARAMETER_VERSION = "params-v4.1"
+PARAMETER_VERSION = "params-v4.2"
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class Parameters:
 
     # Population Regulation
     regulation_model: str = "logistic"  # "logistic" or "none"
-    crowding_capacity: int = 50
+    crowding_capacity: int = 70
 
     # Metabolic Energy
     initial_founder_energy: float = 10.0
@@ -77,6 +77,10 @@ class Parameters:
         if self.regulation_model not in {"logistic", "none"}:
             raise ValueError(
                 f"regulation_model must be 'logistic' or 'none', got '{self.regulation_model}'"
+            )
+        if self.crowding_capacity <= 0:
+            raise ValueError(
+                f"crowding_capacity must be > 0, got {self.crowding_capacity}"
             )
 
     @classmethod

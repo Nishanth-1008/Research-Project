@@ -1,0 +1,16 @@
+{
+  "simulator_version": "sim-4.1.0",
+  "parameter_version": "params-v4.2",
+  "scenario": "sudden_shock",
+  "group": "evolving_joint",
+  "seed": 902,
+  "steps_completed": 109,
+  "extinct": true,
+  "final_population": 0,
+  "final_q_learning_share": null,
+  "mean_resource": 69.70072855263216,
+  "mean_reward": -0.06292352438541093,
+  "total_births": 6,
+  "total_starvation_deaths": 31,
+  "total_retirement_deaths": 25
+}

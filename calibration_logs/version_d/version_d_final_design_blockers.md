@@ -69,12 +69,16 @@ flowchart TD
 
 In the static 50/50 control group (`static_mixture`), **Deficit-Targeted Offspring Assignment** is an engineered composition-maintenance control designed to separate behavioral diversity from frequency-dependent selection.
 
+To eliminate any ambiguity or potential overlap between count comparison and capacity thresholds, offspring assignment follows a **strict 3-tier priority hierarchy**:
+1. **Priority 1 (Extinction Recovery):** If one subpopulation has count zero ($N_F = 0$ or $N_Q = 0$), the newborn is mandatorily assigned to the extinct type, funded by the surviving type.
+2. **Priority 2 (Deficit Elimination):** If type counts are unequal ($N_F \ne N_Q$), the newborn is assigned to whichever type currently has the lower count (larger deficit relative to parity). This mathematical rule holds uniformly across all population states ($N < 50$, $N = 50$, and $N > 50$), because $(25 - N_F > 25 - N_Q) \iff N_F < N_Q$.
+3. **Priority 3 (Parity Tie-Breaking):** If type counts are exactly equal ($N_F = N_Q$), the newborn type is assigned via fair Bernoulli trial ($p = 0.50$).
+
 | Population State | Operational Assignment Rule | Offspring Behavioral Policy & Inheritance | Methodological Status |
 | :--- | :--- | :--- | :--- |
-| **$N < 50$ (Population Contraction)** | Assigned to type with larger absolute deficit relative to 25: $\Delta_F = 25 - N_F$ vs $\Delta_Q = 25 - N_Q$. If $\Delta_F = \Delta_Q$, fair coin flip ($p=0.5$). | If Fixed: receives Fixed rule table.<br>If Q: receives clean zero Q-table (if Fixed parent) or parent Q-table (if Q parent). | **Fully Defined.** Negative feedback pulls subpopulation counts towards 25. |
-| **$N = 50$ (Nominal Capacity)** | If $N_F < 25 \implies$ Fixed.<br>If $N_Q < 25 \implies$ Q-learning.<br>If $N_F = N_Q = 25 \implies$ coin flip ($p=0.5$). | Standard policy assignment per newborn type. | **Fully Defined.** Maintains exact parity. |
-| **$N > 50$ (Simultaneous Birth Overshoot)** | Assigned to minority proportion: if $N_F < N/2 \implies$ Fixed; if $N_Q < N/2 \implies$ Q; if $N_F = N_Q \implies$ coin flip ($p=0.5$). | Standard policy assignment per newborn type. | **Fully Defined.** Directs births to minority type during demographic blooms. |
-| **Subpopulation Extinction ($N_F = 0$ or $N_Q = 0$)** | Mandatory reintroduction: next birth funded by surviving type is assigned to extinct type. | If Fixed extinct: Q-parent pays 10 energy; newborn is Fixed with Fixed table.<br>If Q extinct: Fixed-parent pays 10 energy; newborn is Q with **clean zero Q-table**. | **Fully Defined, with Acknowledged Limitation:** Reintroduced Q-agents enter tabula rasa, lacking historical Q-lineage. |
+| **Subpopulation Extinction ($N_F = 0$ or $N_Q = 0$)** | **Priority 1:** Mandatory reintroduction: next birth funded by surviving type is assigned to extinct type. | If Fixed extinct: Q-parent pays 10 energy; newborn is Fixed with Fixed table.<br>If Q extinct: Fixed-parent pays 10 energy; newborn is Q with **clean zero Q-table**. | **Fully Defined, with Acknowledged Limitation:** Reintroduced Q-agents enter tabula rasa, lacking historical Q-lineage. |
+| **Unequal Subpopulations ($N_F \ne N_Q$)** | **Priority 2:** Assigned to whichever type has lower count ($N_F < N_Q \implies$ Fixed; $N_Q < N_F \implies$ Q). Holds uniformly for $N < 50$, $N = 50$, and $N > 50$. | If Fixed: receives Fixed rule table.<br>If Q: receives clean zero Q-table (if Fixed parent) or parent Q snapshot (if Q parent). | **Fully Defined.** Negative feedback monotonically pulls subpopulation counts towards parity. |
+| **Equal Subpopulations ($N_F = N_Q$)** | **Priority 3:** Fair coin flip ($p=0.50$). | Standard policy assignment per newborn type. | **Fully Defined.** Unbiased stochastic allocation at balance. |
 | **No Eligible Parent ($E < 15.0$ for all living agents)** | **Reproduction halts entirely.** No births occur until an agent accumulates $E \ge 15.0$. | N/A | **Fully Defined (No-Subsidy Invariant):** Adheres strictly to thermodynamic closure. No emergency births or external subsidies are permitted. |
 | **Cross-Type Birth ($T_{\text{child}} \ne T_{\text{parent}}$)** | Parent pays 10 energy ($E \leftarrow E - 10$); newborn receives 10 energy. | Fixed parent births Q $\implies$ **clean zero Q-table**.<br>Q parent births Fixed $\implies$ **Fixed heuristic table**. | **Fully Defined.** Cross-type cultural Q-table inheritance is strictly prohibited. |
 
@@ -136,8 +140,8 @@ $H_{\text{ref}}(t)$ is a **descriptive accounting calculation**, NOT causal evid
 ### Category 3: Exact Protocol Amendments Required (for Protocol v2.0)
 1. **Amendment 1 (Demographic Replacement):** Replace Section 3.3 (Softmax Tournament) with Section 3.3-D (Decentralized Energy-Funded Vital Rates with Regulation).
 2. **Amendment 2 (Cultural Transmission):** Formalize Section 3.4-D (Gradual Q-Table Inheritance over 12 steps).
-3. **Amendment 3 (Static Mixture Control):** Formalize Section 4.1-D (Deficit-Targeted Offspring Assignment and documented limitations).
-4. **Amendment 4 (Ablation Formulations):** Formalize Section 4.2-D (Vital-rate survival and reward ablations).
+3. **Amendment 3 (Static Mixture Control):** Formalize Section 4.1-D (Deficit-Targeted Offspring Assignment with a strict 3-tier priority hierarchy and documented limitations).
+4. **Amendment 4 (Ablation Formulations):** Formalize Section 4.2-D (Vital-rate mechanism ablations: survival-only group using an **age-based survival proxy** that rewards chronological age, not direct survival fitness; reward-only group using somatic energy surplus).
 5. **Amendment 5 (Observation Space):** Formalize 36-state discretization in Section 2.4, incorporating the `critical` energy band ($E < 3.0$).
 
 ---
@@ -148,7 +152,10 @@ $H_{\text{ref}}(t)$ is a **descriptive accounting calculation**, NOT causal evid
 - Biological maintenance cost $c = 0.20$ energy/step.
 - Senescence retirement age $A_{\max} = 100$ steps.
 - Q-learning hyperparameters ($\alpha = 0.10, \gamma = 0.95, \epsilon_0 = 0.20 \to 0.02$).
-- Common matched seeds (Seeds 1001–1030) across all groups.
+- **Strict Seed Disjointness:**
+  - Dedicated calibration seeds: **Seeds 901–910** (10 independent seeds, 2,000 steps).
+  - Common matched production seeds: **Seeds 1001–1030** (30 pre-registered seeds, 2,000 steps).
+  - Zero overlap between calibration and production data ($[901, 910] \cap [1001, 1030] = \emptyset$).
 - Production run horizon $T = 2,000$ steps.
 - Complete historical preservation of Version A, B, C, and Version D Stage 1 calibration artifacts.
 

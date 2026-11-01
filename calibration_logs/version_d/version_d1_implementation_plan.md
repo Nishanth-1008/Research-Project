@@ -318,8 +318,8 @@ Before implementation can be authorized, the Principal Investigator must formall
 ### B. Formal Protocol Amendments Required (for Protocol v2.0)
 - **Amendment 1:** Replace Section 3.3 with Decentralized Energy-Funded Vital Rates ($E \ge 15.0$, parent $-10.0$, child $+10.0$, logistic crowding discount).
 - **Amendment 2:** Formalize Section 3.4 with Gradual Q-Table Inheritance over 12 steps.
-- **Amendment 3:** Formalize Section 4.1 with Deficit-Targeted Offspring Assignment in static mixture (acknowledging cross-type tabula rasa Q initialization).
-- **Amendment 4:** Formalize Section 4.2 with Vital-Rate Survival ($a_i / A_{\max}$) and Surplus-Energy ($E_i - 15$) Ablations (acknowledging non-equivalence to tournament fitness).
+- **Amendment 3:** Formalize Section 4.1 with Deficit-Targeted Offspring Assignment in static mixture via a strict 3-tier priority hierarchy (Priority 1: Extinction Recovery, Priority 2: Deficit Elimination, Priority 3: Parity Tie-Breaking) and cross-type tabula rasa Q initialization.
+- **Amendment 4:** Formalize Section 4.2 with Vital-Rate Mechanism Ablations: Survival-Only Group using an **age-based survival proxy** ($a_i / A_{\max}$, rewarding chronological longevity rather than measuring survival fitness directly) and Reward-Only Group using surplus energy ($E_i - 15$).
 - **Amendment 5:** Formalize Section 2.4 with 36-State Discretization (incorporating `critical` energy band $<3.0$).
 
 ### C. Files Scheduled for Modification (Post-Approval)

@@ -1,0 +1,16 @@
+{
+  "simulator_version": "sim-4.1.0",
+  "parameter_version": "params-v4.2",
+  "scenario": "stationary",
+  "group": "evolving_joint",
+  "seed": 907,
+  "steps_completed": 127,
+  "extinct": true,
+  "final_population": 0,
+  "final_q_learning_share": null,
+  "mean_resource": 63.7207728802731,
+  "mean_reward": -0.08304367169165187,
+  "total_births": 9,
+  "total_starvation_deaths": 34,
+  "total_retirement_deaths": 25
+}

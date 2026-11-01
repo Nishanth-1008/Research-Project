@@ -306,6 +306,7 @@ class TestVersionDSimulatorIntegration(unittest.TestCase):
             initial_population=50,
             initial_founder_energy=22.0,  # Surplus energy allows immediate reproduction
             reproduction_max_prob=1.0,  # Force immediate reproduction
+            regulation_model="none",
         )
         sim = EcosystemSimulator(parameters=params, scenario="stationary", seed=1001)
 

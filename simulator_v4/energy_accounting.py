@@ -18,6 +18,17 @@ class EnergyLedger:
     def total_energy_inflow(self) -> float:
         return self.initial_founder_endowment + self.cumulative_harvested
 
+    def compute_discrepancy(self, living_agents_energy: float) -> float:
+        expected_current = (
+            self.initial_founder_endowment
+            + self.cumulative_harvested
+            - self.cumulative_maintenance
+            - self.cumulative_energy_cap_losses
+            - self.cumulative_retirement_losses
+            - self.cumulative_starvation_losses
+        )
+        return living_agents_energy - expected_current
+
     def verify_energy_balance(self, living_agents_energy: float) -> tuple[bool, float]:
         """
         Thermodynamic conservation law:
@@ -28,14 +39,6 @@ class EnergyLedger:
         Internal reproduction transfers cancel identically:
         Delta E_parent (-10) + Delta E_newborn (+10) = 0.
         """
-        expected_current = (
-            self.initial_founder_endowment
-            + self.cumulative_harvested
-            - self.cumulative_maintenance
-            - self.cumulative_energy_cap_losses
-            - self.cumulative_retirement_losses
-            - self.cumulative_starvation_losses
-        )
-        discrepancy = living_agents_energy - expected_current
+        discrepancy = self.compute_discrepancy(living_agents_energy)
         is_conserved = abs(discrepancy) < 1e-8
         return is_conserved, discrepancy

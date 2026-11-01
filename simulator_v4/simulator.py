@@ -167,7 +167,7 @@ class EcosystemSimulator:
             self.parameters.initial_fixed_count + self.parameters.initial_q_count
         ) * self.parameters.initial_founder_energy
         self.energy_ledger = EnergyLedger(
-            initial_endowment=total_initial_endowment
+            initial_founder_endowment=total_initial_endowment
         )
 
         self.records: list[StepRecord] = []
@@ -628,8 +628,9 @@ class EcosystemSimulator:
         self.records.append(record)
         return record
 
-    def run(self) -> RunResult:
-        for t in range(self.parameters.run_length):
+    def run(self, steps: int | None = None) -> RunResult:
+        total_steps = steps if steps is not None else self.parameters.run_length
+        for t in range(total_steps):
             rec = self.step(t)
             if rec.living_population == 0:
                 break

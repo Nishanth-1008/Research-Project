@@ -34,7 +34,7 @@ def calculate_reproduction_probability(
     energy: float,
     age: int,
     parameters: Parameters,
-    living_population: int = 50,
+    living_population: int = 0,
 ) -> float:
     """
     Computes reproduction probability P_i' subject to group vital-rate rules and logistic crowding:
@@ -53,6 +53,8 @@ def calculate_reproduction_probability(
     if parameters.group == "survival_only":
         if age >= parameters.maximum_age:
             return 0.0
+        # Age-based survival proxy: scales reproductive probability linearly with age
+        # (rewards achieved longevity as an age-based proxy, not direct survival fitness)
         base_prob = parameters.reproduction_max_prob * (age / float(parameters.maximum_age))
     elif parameters.group == "reward_only":
         energy_span = parameters.reproduction_target_energy - parameters.reproduction_min_energy
@@ -155,34 +157,21 @@ def perform_endogenous_reproduction(
                 current_q = sum(1 for a in living_agents if a.kind == "q_learning") + sum(1 for a in newborns if a.kind == "q_learning")
                 total_current = current_fixed + current_q
 
-                # Deficit-targeted assignment
+                # Deficit-targeted assignment with strict priority hierarchy:
+                # Priority 1: Extinction Recovery (reintroduce extinct type if count is zero)
                 if current_fixed == 0 and current_q > 0:
                     newborn_kind: AgentType = "fixed"
                 elif current_q == 0 and current_fixed > 0:
                     newborn_kind = "q_learning"
-                elif total_current < 50:
-                    delta_fixed = 25 - current_fixed
-                    delta_q = 25 - current_q
-                    if delta_fixed > delta_q:
-                        newborn_kind = "fixed"
-                    elif delta_q > delta_fixed:
-                        newborn_kind = "q_learning"
-                    else:
-                        newborn_kind = "fixed" if random_gen.random() < 0.5 else "q_learning"
-                elif total_current == 50:
-                    if current_fixed < 25:
-                        newborn_kind = "fixed"
-                    elif current_q < 25:
-                        newborn_kind = "q_learning"
-                    else:
-                        newborn_kind = "fixed" if random_gen.random() < 0.5 else "q_learning"
-                else:  # total_current > 50
-                    if current_fixed < total_current / 2.0:
-                        newborn_kind = "fixed"
-                    elif current_q < total_current / 2.0:
-                        newborn_kind = "q_learning"
-                    else:
-                        newborn_kind = "fixed" if random_gen.random() < 0.5 else "q_learning"
+                # Priority 2: Deficit Elimination (assign to whichever type has lower count / larger deficit)
+                # Note: Holds uniformly for N < 50, N == 50, and N > 50 since (25 - fixed > 25 - q) <=> fixed < q
+                elif current_fixed < current_q:
+                    newborn_kind = "fixed"
+                elif current_q < current_fixed:
+                    newborn_kind = "q_learning"
+                # Priority 3: Parity Tie-Breaking (fair Bernoulli trial when counts are exactly equal)
+                else:
+                    newborn_kind = "fixed" if random_gen.random() < 0.5 else "q_learning"
 
                 # Inheritance isolation for static mixture
                 if newborn_kind == "fixed":

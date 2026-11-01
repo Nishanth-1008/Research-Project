@@ -1,5 +1,9 @@
 # Research Protocol
 
+> [!NOTE]
+> **Protocol Version 2.0 Ratification Notice (November 2026)**:
+> This protocol has been formally amended by [Protocol v2.0 Amendments](file:///Users/nish/home/Research%20Project/docs/research_protocol/07_protocol_v2_amendments.md) (Amendments 1–5), ratifying decentralized energy-funded vital rates, 12-step cultural Q-table inheritance, deficit-targeted static mixture composition maintenance, vital-rate ablations, and the 36-state observation model.
+
 ## Title
 
 Endogenous turnover in mixed populations of fixed-rule and Q-learning agents sharing a renewable resource.
